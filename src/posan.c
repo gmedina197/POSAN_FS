@@ -9,7 +9,7 @@
 
 #define clear() printf("\033[H\033[J")
 
-void export(FILE* posan, char* name){
+void export(FILE* posan, char* name, FILE* save){
 	fseek(posan, 131616, SEEK_SET); //pula o root dir
 	directory dir;
 	unsigned char entry = 0;
@@ -21,11 +21,15 @@ void export(FILE* posan, char* name){
 	printf("size: %d\n", dir.size_file);
 	printf("initial cluster: %d\n", dir.initial_cluster);
 
-	fseek(posan, 1028, SEEK_SET); //busca o cluster na fat
+	double n = dir.size_file/512;
+	int clusters = (int)ceil(n)+1;
 
-	double clusters = dir.size_file/512;
-	printf("--> %d\n", (int)ceil(clusters));//ok
-
+	fseek(posan, 512 * dir.initial_cluster, SEEK_SET);
+	unsigned char info;
+	for (int i = 0; i < dir.size_file; i++){
+		fread(&info, sizeof(info),1,posan);
+		fwrite(&info, sizeof(info), 1, save);
+	}
 }
 
 
@@ -91,7 +95,8 @@ int main(int argc, char **argv){
 				exit(-1);
 			}
 			strcpy(nome, get_nome(choose, '/'));
-			export(posan, nome);
+			export(posan, nome, save);
+			fclose(save);
 		}	
 
 		else {
