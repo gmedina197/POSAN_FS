@@ -1,3 +1,6 @@
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
+
 int get_cluster(FILE* fat){
 	unsigned short int entry;
     fseek(fat,1024,SEEK_SET);
@@ -42,7 +45,6 @@ int get_ncluster(FILE* save){
 void copy_file(FILE *fat, FILE *save, int cluster, char *name){
 	//marcando a FAT
 	cluster = get_cluster(fat) + 256;
-	printf("%d\n", cluster);
 	fseek(fat, (cluster*2)+512, SEEK_SET);
 	unsigned short int mark = 0xFFFF, fillc = 0x01;
 
@@ -93,6 +95,26 @@ void copy_file(FILE *fat, FILE *save, int cluster, char *name){
 		fwrite(&fill, sizeof(fill),1, fat);
 }
 
+void export(FILE* posan, char* name, FILE* save){
+	fseek(posan, 131616, SEEK_SET); //pula o root dir
+	directory dir;
+	unsigned char entry = 0;
+	while (1){
+		fread(&dir, sizeof(dir), 1, posan);
+		if (strcmp(dir.filename, name) == 0) break;
+	}
+
+	double n = dir.size_file/512;
+	int clusters = (int)ceil(n)+1;
+
+	fseek(posan, 512 * dir.initial_cluster, SEEK_SET);
+	unsigned char info;
+	for (int i = 0; i < dir.size_file; i++){
+		fread(&info, sizeof(info),1,posan);
+		fwrite(&info, sizeof(info), 1, save);
+	}
+}
+
 void formatar(FILE *fat){
 	boot_sec(fat);		
 	make_fat(fat);		
@@ -105,6 +127,9 @@ void listar(FILE *fat){
 	while(1){
 		fread(&list, sizeof(list),1,fat);
 		if (strcmp(list.filename, "") == 0) break;
-		printf("%s\n", list.filename);
+		if (list.attribute == 1)
+			printf("%s\n", list.filename);
+		else
+			printf(ANSI_COLOR_GREEN "%s" ANSI_COLOR_RESET "\n", list.filename);
 	}
 }
