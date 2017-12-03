@@ -24,7 +24,7 @@ void export(FILE* posan, char* name){
 	fseek(posan, 1028, SEEK_SET); //busca o cluster na fat
 
 	double clusters = dir.size_file/512;
-	printf("--> %d\n", (int)ceil(clusters));
+	printf("--> %d\n", (int)ceil(clusters));//ok
 
 }
 

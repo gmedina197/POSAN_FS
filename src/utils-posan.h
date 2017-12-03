@@ -1,3 +1,4 @@
+//ok
 int get_cluster(FILE* fat){
 	unsigned short int entry;
     fseek(fat,1024,SEEK_SET);
