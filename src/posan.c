@@ -9,39 +9,56 @@
 
 #define clear() printf("\033[H\033[J")
 
-void subdir(FILE* posan, char* name){
-	//marcando na fat -----------------------------------------
+void fill_subdir(FILE* posan, FILE* save, char *name, char *name2){
+	fseek(posan, 131616, SEEK_SET); //pula o root dir
+	directory dir, subdir;
+	unsigned char entry = 0;
+	int cont = 0;
+	while (1){
+		if (cont == 16) {
+			printf("Subdirectory not found\nPlease type a name that is valid\n");
+			break;
+		}
+		fread(&dir, sizeof(dir), 1, posan);
+		if (strcmp(dir.filename, name) == 0 && dir.attribute == 2) break;
+		cont++;
+	}
+	//marcando fat
 	int cluster = get_cluster(posan) + 256;
 	fseek(posan, (cluster*2)+512, SEEK_SET);
-	unsigned short int mark = 0xFFFF;
-	fwrite(&mark, sizeof(mark), 1, posan); 
-	//marcando no subdiretorio---------------------------------
-	directory rd;
-	for (int i = 0; i < 25; i++){
-		if (i < strlen(name)){
-			rd.filename[i] = name[i];
-		}else
-			rd.filename[i] = 0x00;
-	}
-	rd.attribute = 2;
-	rd.initial_cluster = cluster;
-	rd.size_file = 0;
+	unsigned short int mark = 0xFFFF, fillc = 0x01;
 
-	fseek(posan, 131584, SEEK_SET);
-	directory dir;
+	fwrite(&mark, sizeof(mark), 1, posan); 
+
+	int nclusters = get_ncluster(save);
+	if (nclusters > 1){
+		for (int i = 0; i < nclusters; i++){
+			fwrite(&fillc, sizeof(fillc), 1, posan);
+		}
+	}	
+
+	//marcando subdir
+	fseek(posan, 512 * dir.initial_cluster, SEEK_SET);
+	for (int i = 0; i < 25; i++){
+		if (i < strlen(name2)){
+			subdir.filename[i] = name2[i];
+		}else
+			subdir.filename[i] = 0x00;
+	}
+	subdir.attribute = 1;
+	subdir.initial_cluster = cluster;
+	subdir.size_file = size(save);
+	
 	while(1){
-		fread(&dir, sizeof(dir),1,posan);
+		fread(&dir, sizeof(dir), 1, posan);
 		if (strcmp(dir.filename, "") == 0){
 			fseek(posan, ftell(posan)-32, SEEK_SET);
 			break;
 		}
 	}
 
-	fwrite(&rd, sizeof(rd), 1, posan);
-}
+	fwrite(&subdir, sizeof(subdir), 1, posan);
 
-void fill_subdir(FILE* posan, FILE* save, char *name){
-	
 }
 
 int main(int argc, char **argv){
@@ -72,20 +89,29 @@ int main(int argc, char **argv){
 			printf("Formating...Please Wait \n");
 			formatar(posan);
 			printf("Done.\n");
+		}else if (strcmp(choose, "hard format") == 0){
+			printf("Hard formating...Please wait\n");
+			hard_format(posan);
+			printf("Done.\n");
 		}else if(strstr(choose, "add") != NULL){
 			char nome[100];
 			
 			strncpy(nome, get_nome(choose, ' '), sizeof(nome));
 			
-			printf("%s\n", nome);
 			save = fopen(nome, "rb");
 			if(save == NULL){
 				printf("deu merda\n");
 				exit(-1);
 			}
-			strcpy(nome, get_nome(choose, '/'));
+				strcpy(nome, get_nome(choose, '/'));
 
-			copy_file(posan, save, get_cluster(posan), nome);
+			if (occurrences(choose) == 2 ){
+				fill_subdir(posan, save, first_name(choose, ' '), nome);
+
+			}else{
+
+				copy_file(posan, save, get_cluster(posan), nome);
+			}
 
 		}
 		else if(strcmp(choose, "ls") == 0)	listar(posan);
@@ -107,7 +133,7 @@ int main(int argc, char **argv){
 				exit(-1);
 			}
 			strcpy(nome, get_nome(choose, '/'));
-			export(posan, nome, save);
+			export_file(posan, nome, save);
 			fclose(save);
 		}else if (strstr(choose, "mkdir") != NULL){
 			char nome[25];

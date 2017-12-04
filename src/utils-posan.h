@@ -36,6 +36,27 @@ const char* get_nome(char* path, int rmv){
     return ret;
 }
 
+int occurrences(char *path){
+	char *pch;
+	pch = strchr(path, ' ');
+	int i = 0;
+	while (pch != NULL){
+		i++;
+		pch = strchr(pch+1, ' ');
+	}
+	return i;
+}
+
+char* first_name(char* path, int rmv){
+	char *ret, *pch;
+	ret = strchr(path, rmv);
+	ret++;
+	pch = (char*) memchr(ret, ' ', strlen(ret));
+	strncpy(path, ret, pch - ret);
+	path[pch-ret] = '\0';
+	return path;
+}
+
 int get_ncluster(FILE* save){
 	double n = size(save);
 	n = n/512;
@@ -95,7 +116,7 @@ void copy_file(FILE *fat, FILE *save, int cluster, char *name){
 		fwrite(&fill, sizeof(fill),1, fat);
 }
 
-void export(FILE* posan, char* name, FILE* save){
+void export_file(FILE* posan, char* name, FILE* save){
 	fseek(posan, 131616, SEEK_SET); //pula o root dir
 	directory dir;
 	unsigned char entry = 0;
@@ -121,6 +142,16 @@ void formatar(FILE *fat){
 	make_dir(fat);		
 }
 
+void hard_format(FILE *fat){
+	boot_sec(fat);		
+	make_fat(fat);		
+	make_dir(fat);
+	char zero = 0x00;
+	for (int i = 0; i < size(fat); i++){
+		fwrite(&zero, sizeof(zero), 1, fat);
+	}		
+}
+
 void listar(FILE *fat){
 	fseek(fat, 131584, SEEK_SET);
 	directory list;
@@ -132,4 +163,35 @@ void listar(FILE *fat){
 		else
 			printf(ANSI_COLOR_GREEN "%s" ANSI_COLOR_RESET "\n", list.filename);
 	}
+}
+
+void subdir(FILE* posan, char* name){
+	//marcando na fat -----------------------------------------
+	int cluster = get_cluster(posan) + 256;
+	fseek(posan, (cluster*2)+512, SEEK_SET);
+	unsigned short int mark = 0xFFFF;
+	fwrite(&mark, sizeof(mark), 1, posan); 
+	//marcando no subdiretorio---------------------------------
+	directory rd;
+	for (int i = 0; i < 25; i++){
+		if (i < strlen(name)){
+			rd.filename[i] = name[i];
+		}else
+			rd.filename[i] = 0x00;
+	}
+	rd.attribute = 2;
+	rd.initial_cluster = cluster;
+	rd.size_file = 0;
+
+	fseek(posan, 131584, SEEK_SET);
+	directory dir;
+	while(1){
+		fread(&dir, sizeof(dir),1,posan);
+		if (strcmp(dir.filename, "") == 0){
+			fseek(posan, ftell(posan)-32, SEEK_SET);
+			break;
+		}
+	}
+
+	fwrite(&rd, sizeof(rd), 1, posan);
 }
