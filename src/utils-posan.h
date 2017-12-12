@@ -47,14 +47,23 @@ int occurrences(char *path){
 	return i;
 }
 
-char* first_name(char* path, int rmv){
-	char *ret, *pch;
-	ret = strchr(path, rmv);
-	ret++;
-	pch = (char*) memchr(ret, ' ', strlen(ret));
-	strncpy(path, ret, pch - ret);
-	path[pch-ret] = '\0';
-	return path;
+char* first_name(char* path){
+
+    const char *PATTERN = " ";
+
+    char *target = NULL;
+    char *start, *end;
+
+    if (start = strstr(path, PATTERN)){
+        start += strlen( PATTERN );
+        if (end = strstr(start, PATTERN)){
+            target = ( char * )malloc( end - start + 1 );
+            memcpy( target, start, end - start );
+            target[end - start] = '\0';
+        }
+    }
+
+	return target;
 }
 
 int get_ncluster(FILE* save){
@@ -146,7 +155,8 @@ void hard_format(FILE *fat){
 	boot_sec(fat);		
 	make_fat(fat);		
 	make_dir(fat);
-	char zero = 0x00;
+	unsigned char zero = 0;
+	printf("%d\n", size(fat));
 	for (int i = 0; i < size(fat); i++){
 		fwrite(&zero, sizeof(zero), 1, fat);
 	}		
@@ -194,4 +204,8 @@ void subdir(FILE* posan, char* name){
 	}
 
 	fwrite(&rd, sizeof(rd), 1, posan);
+	fseek(posan, 512 * cluster, SEEK_SET);
+	unsigned char entry = 0;
+	for (int i = 0; i < 512; i++)
+		fwrite(&entry, sizeof(entry), 1 , posan);
 }

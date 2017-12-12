@@ -20,7 +20,9 @@ void fill_subdir(FILE* posan, FILE* save, char *name, char *name2){
 			break;
 		}
 		fread(&dir, sizeof(dir), 1, posan);
-		if (strcmp(dir.filename, name) == 0 && dir.attribute == 2) break;
+		if (strcmp(dir.filename, name) == 0 && dir.attribute == 2){
+			break;
+		} 
 		cont++;
 	}
 	//marcando fat
@@ -38,7 +40,8 @@ void fill_subdir(FILE* posan, FILE* save, char *name, char *name2){
 	}	
 
 	//marcando subdir
-	fseek(posan, 512 * dir.initial_cluster, SEEK_SET);
+	fseek(posan, (512 * dir.initial_cluster), SEEK_SET);
+
 	for (int i = 0; i < 25; i++){
 		if (i < strlen(name2)){
 			subdir.filename[i] = name2[i];
@@ -49,15 +52,29 @@ void fill_subdir(FILE* posan, FILE* save, char *name, char *name2){
 	subdir.initial_cluster = cluster;
 	subdir.size_file = size(save);
 	
+	directory sdir;
 	while(1){
-		fread(&dir, sizeof(dir), 1, posan);
-		if (strcmp(dir.filename, "") == 0){
+		fread(&sdir, sizeof(sdir),1,posan);
+		if (strcmp(sdir.filename, "") == 0){
 			fseek(posan, ftell(posan)-32, SEEK_SET);
 			break;
 		}
 	}
 
 	fwrite(&subdir, sizeof(subdir), 1, posan);
+	//copiando conteudo
+
+	fseek(posan, (subdir.initial_cluster) * 512, SEEK_SET);
+	char reader, fill = 0;
+	cont = 0;
+	while (!feof(save)){
+		fread(&reader, sizeof(reader), 1, save);
+		fwrite(&reader, sizeof(reader),1, posan);
+		cont++;
+		if (cont >= 512) cont = 0;
+	}
+	for (int i = 0; i < 512 - cont; i++)
+		fwrite(&fill, sizeof(fill),1, posan);
 
 }
 
@@ -94,8 +111,7 @@ int main(int argc, char **argv){
 			hard_format(posan);
 			printf("Done.\n");
 		}else if(strstr(choose, "add") != NULL){
-			char nome[100];
-			
+			char nome[100], backup[100];
 			strncpy(nome, get_nome(choose, ' '), sizeof(nome));
 			
 			save = fopen(nome, "rb");
@@ -103,13 +119,13 @@ int main(int argc, char **argv){
 				printf("deu merda\n");
 				exit(-1);
 			}
-				strcpy(nome, get_nome(choose, '/'));
-
+			strcpy(nome, get_nome(choose, '/'));
+			
 			if (occurrences(choose) == 2 ){
-				fill_subdir(posan, save, first_name(choose, ' '), nome);
+				//;
+				fill_subdir(posan, save, first_name(choose), nome);
 
 			}else{
-
 				copy_file(posan, save, get_cluster(posan), nome);
 			}
 
@@ -138,7 +154,6 @@ int main(int argc, char **argv){
 		}else if (strstr(choose, "mkdir") != NULL){
 			char nome[25];
 			strcpy(nome, get_nome(choose, ' '));
-			printf("%s\n", nome);
 			subdir(posan, nome);
 		}
 		else {
