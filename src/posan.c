@@ -9,6 +9,48 @@
 
 #define clear() printf("\033[H\033[J")
 
+void update_fat(FILE* posan, directory list){
+	//marcando a fat -----------------------------------------------
+	int cluster = list.initial_cluster;
+	fseek(posan, (cluster*2)+512, SEEK_SET);
+	unsigned short int mark = 0x00;
+	fwrite(&mark, sizeof(mark), 1, posan);
+
+	int cl = get_c(list.size_file);
+
+	if (cl > 1){
+		for (int i = 0; i < cl; i++){
+			fwrite(&mark, sizeof(mark), 1, posan);
+		}
+	}	
+	// -------------------------------------------------------------
+}
+
+void remove_file(FILE* posan, char* dir, int desloc){
+	fseek(posan, desloc, SEEK_SET);
+	directory list;
+	int cont = 0;
+	unsigned short rem = 0xE5;
+	while(1){
+		if (cont == 16) {
+			printf("Archive does not found\nPlease type a name that is valid\n");
+			break;
+		}
+		fread(&list, sizeof(list), 1, posan);
+		if (strcmp(list.filename, dir) == 0){
+			fseek(posan, ftell(posan) - 32, SEEK_SET);
+			fwrite(&rem, sizeof(rem), 1, posan);
+			break;
+		}
+		cont++;
+	}
+	if (list.attribute == 1)
+		update_fat(posan, list);
+	else{
+		
+	}
+}
+
 int main(int argc, char **argv){
 	FILE *posan, *save;
     char choose[100];
@@ -47,7 +89,7 @@ int main(int argc, char **argv){
 			
 			save = fopen(nome, "rb");
 			if(save == NULL){
-				printf("deu merda\n");
+				printf("file cannot be open\n");
 				exit(-1);
 			}
 			strcpy(nome, get_nome(choose, '/'));
@@ -70,6 +112,17 @@ int main(int argc, char **argv){
 			else
 				listar(posan);
 		}
+		else if(strstr(choose, "rm") != NULL){
+			char nome[100], backup[100];
+			strncpy(nome, get_nome(choose, ' '), sizeof(nome));
+			
+			if (occurrences(choose) == 2 ){
+				printf("remove arquivo dentro de diretorio\n");
+				
+			}else{
+				remove_file(posan, nome, 131584);
+			}
+		}
 		else if (strcmp(choose, "clear") == 0) clear();
 		else if (strcmp(choose, "help") == 0){
 			printf("POSAN(Projeto Ordinario de um Sistema de Aquivo Novo) version 1.0\n");
@@ -84,7 +137,7 @@ int main(int argc, char **argv){
 			strcpy(nome, get_nome(choose, ' '));
 			save = fopen(nome, "wb");
 			if(save == NULL){
-				printf("deu merda\n");
+				printf("file cannot be open\n");
 				exit(-1);
 			}
 			strcpy(nome, get_nome(choose, '/'));

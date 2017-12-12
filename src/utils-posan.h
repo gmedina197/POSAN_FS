@@ -72,6 +72,12 @@ int get_ncluster(FILE* save){
 	return (int)ceil(n);
 }
 
+int get_c(int s){
+	double n = s;
+	n = n/512;
+	return (int)ceil(n);
+}
+
 void copy_file(FILE *fat, FILE *save, int cluster, char *name){
 	//marcando a FAT
 	cluster = get_cluster(fat) + 256;
@@ -168,9 +174,9 @@ void listar(FILE *fat){
 	while(1){
 		fread(&list, sizeof(list),1,fat);
 		if (strcmp(list.filename, "") == 0) break;
-		if (list.attribute == 1)
+		if (list.attribute == 1 && list.filename[0] != 0xe5)
 			printf("%s\n", list.filename);
-		else
+		else if (list.filename[0] != 0xe5)
 			printf(ANSI_COLOR_GREEN "%s" ANSI_COLOR_RESET "\n", list.filename);
 	}
 }
@@ -189,10 +195,8 @@ void listar_dir(FILE *fat, char* nome_dir){
 	while(1){
 		fread(&list, sizeof(list),1,fat);
 		if (strcmp(list.filename, "") == 0) break;
-		if (list.attribute == 1)
+		if (list.attribute == 1 && list.filename[0] != 0xe5)
 			printf("%s\n", list.filename);
-		else
-			printf(ANSI_COLOR_GREEN "%s" ANSI_COLOR_RESET "\n", list.filename);
 	}
 
 }
@@ -213,7 +217,7 @@ void subdir(FILE* posan, char* name){
 	}
 	rd.attribute = 2;
 	rd.initial_cluster = cluster;
-	rd.size_file = 0;
+	rd.size_file = 512;
 
 	fseek(posan, 131584, SEEK_SET);
 	directory dir;
