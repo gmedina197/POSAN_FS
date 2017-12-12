@@ -175,6 +175,28 @@ void listar(FILE *fat){
 	}
 }
 
+void listar_dir(FILE *fat, char* nome_dir){
+	fseek(fat, 131584, SEEK_SET);
+	directory subdir, list;
+	while(1){
+		fread(&subdir, sizeof(subdir), 1, fat);
+		if(strcmp(subdir.filename, nome_dir) == 0){
+			break;
+		}
+	}
+	fseek(fat, subdir.initial_cluster * 512, SEEK_SET);
+	
+	while(1){
+		fread(&list, sizeof(list),1,fat);
+		if (strcmp(list.filename, "") == 0) break;
+		if (list.attribute == 1)
+			printf("%s\n", list.filename);
+		else
+			printf(ANSI_COLOR_GREEN "%s" ANSI_COLOR_RESET "\n", list.filename);
+	}
+
+}
+
 void subdir(FILE* posan, char* name){
 	//marcando na fat -----------------------------------------
 	int cluster = get_cluster(posan) + 256;
@@ -208,4 +230,73 @@ void subdir(FILE* posan, char* name){
 	unsigned char entry = 0;
 	for (int i = 0; i < 512; i++)
 		fwrite(&entry, sizeof(entry), 1 , posan);
+}
+
+void fill_subdir(FILE* posan, FILE* save, char *name, char *name2){
+	fseek(posan, 131616, SEEK_SET); //pula o root dir
+	directory dir, subdir;
+	unsigned char entry = 0;
+	int cont = 0;
+	while (1){
+		if (cont == 16) {
+			printf("Subdirectory not found\nPlease type a name that is valid\n");
+			break;
+		}
+		fread(&dir, sizeof(dir), 1, posan);
+		if (strcmp(dir.filename, name) == 0 && dir.attribute == 2){
+			break;
+		} 
+		cont++;
+	}
+	//marcando fat
+	int cluster = get_cluster(posan) + 256;
+	fseek(posan, (cluster*2)+512, SEEK_SET);
+	unsigned short int mark = 0xFFFF, fillc = 0x01;
+
+	fwrite(&mark, sizeof(mark), 1, posan); 
+
+	int nclusters = get_ncluster(save);
+	if (nclusters > 1){
+		for (int i = 0; i < nclusters; i++){
+			fwrite(&fillc, sizeof(fillc), 1, posan);
+		}
+	}	
+
+	//marcando subdir
+	fseek(posan, (512 * dir.initial_cluster), SEEK_SET);
+
+	for (int i = 0; i < 25; i++){
+		if (i < strlen(name2)){
+			subdir.filename[i] = name2[i];
+		}else
+			subdir.filename[i] = 0x00;
+	}
+	subdir.attribute = 1;
+	subdir.initial_cluster = cluster;
+	subdir.size_file = size(save);
+	
+	directory sdir;
+	while(1){
+		fread(&sdir, sizeof(sdir),1,posan);
+		if (strcmp(sdir.filename, "") == 0){
+			fseek(posan, ftell(posan)-32, SEEK_SET);
+			break;
+		}
+	}
+
+	fwrite(&subdir, sizeof(subdir), 1, posan);
+	//copiando conteudo
+
+	fseek(posan, (subdir.initial_cluster) * 512, SEEK_SET);
+	char reader, fill = 0;
+	cont = 0;
+	while (!feof(save)){
+		fread(&reader, sizeof(reader), 1, save);
+		fwrite(&reader, sizeof(reader),1, posan);
+		cont++;
+		if (cont >= 512) cont = 0;
+	}
+	for (int i = 0; i < 512 - cont; i++)
+		fwrite(&fill, sizeof(fill),1, posan);
+
 }
