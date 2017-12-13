@@ -131,7 +131,7 @@ void copy_file(FILE *fat, FILE *save, int cluster, char *name){
 		fwrite(&fill, sizeof(fill),1, fat);
 }
 
-void export_file(FILE* posan, char* name, FILE* save){
+void export_file(FILE* posan, char* name, FILE* save){	
 	fseek(posan, 131616, SEEK_SET); //pula o root dir
 	directory dir;
 	unsigned char entry = 0;
@@ -139,7 +139,7 @@ void export_file(FILE* posan, char* name, FILE* save){
 		fread(&dir, sizeof(dir), 1, posan);
 		if (strcmp(dir.filename, name) == 0) break;
 	}
-
+	printf("%s\n", dir.filename );
 	double n = dir.size_file/512;
 	int clusters = (int)ceil(n)+1;
 
@@ -309,4 +309,58 @@ void fill_subdir(FILE* posan, FILE* save, char *name, char *name2){
 	for (int i = 0; i < 512 - cont; i++)
 		fwrite(&fill, sizeof(fill),1, posan);
 
+}
+
+void update_fat(FILE* posan, directory list){
+	//marcando a fat -----------------------------------------------
+	long int save = ftell(posan);
+	int cluster = list.initial_cluster;
+	fseek(posan, (cluster*2)+512, SEEK_SET);
+	unsigned short int mark = 0x00;
+	fwrite(&mark, sizeof(mark), 1, posan);
+
+	int cl = get_c(list.size_file);
+
+	if (cl > 1){
+		for (int i = 0; i < cl; i++){
+			fwrite(&mark, sizeof(mark), 1, posan);
+		}
+	}	
+	fseek(posan, save, SEEK_SET);
+	// -------------------------------------------------------------
+}
+
+void remove_file(FILE* posan, char* dir, int desloc){
+	fseek(posan, desloc, SEEK_SET);
+	directory list, subdir;
+	int cont = 0;
+	unsigned short rem = 0xE5;
+	while(1){
+		if (cont == 16) {
+			printf("Archive does not found\nPlease type a name that is valid\n");
+			break;
+		}
+		fread(&list, sizeof(list), 1, posan);
+		if (strcmp(list.filename, dir) == 0){
+			fseek(posan, ftell(posan) - 32, SEEK_SET);
+			fwrite(&rem, sizeof(rem), 1, posan);
+			break;
+		}
+		cont++;
+	}
+	update_fat(posan, list);
+	if(list.attribute == 2){
+		fseek(posan, list.initial_cluster * 512, SEEK_SET);
+		while(1){
+			fread(&subdir, sizeof(subdir), 1, posan);
+			if (subdir.filename[0] == 0) break;
+			else{
+				fseek(posan, ftell(posan) - 32, SEEK_SET);
+				fwrite(&rem, sizeof(rem), 1, posan);
+				fseek(posan, ftell(posan) + 30, SEEK_SET);
+				update_fat(posan, subdir);
+			}
+			printf("%s\n", subdir.filename);
+		}
+	}
 }

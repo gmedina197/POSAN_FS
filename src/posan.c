@@ -9,60 +9,6 @@
 
 #define clear() printf("\033[H\033[J")
 
-void update_fat(FILE* posan, directory list){
-	//marcando a fat -----------------------------------------------
-	long int save = ftell(posan);
-	int cluster = list.initial_cluster;
-	fseek(posan, (cluster*2)+512, SEEK_SET);
-	unsigned short int mark = 0x00;
-	fwrite(&mark, sizeof(mark), 1, posan);
-
-	int cl = get_c(list.size_file);
-
-	if (cl > 1){
-		for (int i = 0; i < cl; i++){
-			fwrite(&mark, sizeof(mark), 1, posan);
-		}
-	}	
-	fseek(posan, save, SEEK_SET);
-	// -------------------------------------------------------------
-}
-
-void remove_file(FILE* posan, char* dir, int desloc){
-	fseek(posan, desloc, SEEK_SET);
-	directory list, subdir;
-	int cont = 0;
-	unsigned short rem = 0xE5;
-	while(1){
-		if (cont == 16) {
-			printf("Archive does not found\nPlease type a name that is valid\n");
-			break;
-		}
-		fread(&list, sizeof(list), 1, posan);
-		if (strcmp(list.filename, dir) == 0){
-			fseek(posan, ftell(posan) - 32, SEEK_SET);
-			fwrite(&rem, sizeof(rem), 1, posan);
-			break;
-		}
-		cont++;
-	}
-	update_fat(posan, list);
-	if(list.attribute == 2){
-		fseek(posan, list.initial_cluster * 512, SEEK_SET);
-		while(1){
-			fread(&subdir, sizeof(subdir), 1, posan);
-			if (subdir.filename[0] == 0) break;
-			else{
-				fseek(posan, ftell(posan) - 32, SEEK_SET);
-				fwrite(&rem, sizeof(rem), 1, posan);
-				fseek(posan, ftell(posan) + 30, SEEK_SET);
-				update_fat(posan, subdir);
-			}
-			printf("%s\n", subdir.filename);
-		}
-	}
-}
-
 int main(int argc, char **argv){
 	FILE *posan, *save;
     char choose[100];
@@ -128,12 +74,7 @@ int main(int argc, char **argv){
 			char nome[100], backup[100];
 			strncpy(nome, get_nome(choose, ' '), sizeof(nome));
 			
-			if (occurrences(choose) == 2 ){
-				printf("remove arquivo dentro de diretorio\n");
-				
-			}else{
-				remove_file(posan, nome, 131584);
-			}
+			remove_file(posan, nome, 131584);
 		}
 		else if (strcmp(choose, "clear") == 0) clear();
 		else if (strcmp(choose, "help") == 0){
@@ -145,6 +86,7 @@ int main(int argc, char **argv){
 			printf("clear              - \n");
 			printf("ls                 - show all the files in the file system\n");
 		}else if(strstr(choose, "export") != NULL){
+
 			char nome[100];
 			strcpy(nome, get_nome(choose, ' '));
 			save = fopen(nome, "wb");
