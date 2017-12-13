@@ -184,11 +184,17 @@ void listar(FILE *fat){
 void listar_dir(FILE *fat, char* nome_dir){
 	fseek(fat, 131584, SEEK_SET);
 	directory subdir, list;
+	int cont = 0;
 	while(1){
+		if (cont == 16){
+			printf("Subdirectory does not found\nPlease type a valid name\n");
+			break;
+		}
 		fread(&subdir, sizeof(subdir), 1, fat);
 		if(strcmp(subdir.filename, nome_dir) == 0){
 			break;
 		}
+		cont++;
 	}
 	fseek(fat, subdir.initial_cluster * 512, SEEK_SET);
 	
