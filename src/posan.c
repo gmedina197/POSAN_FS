@@ -11,6 +11,7 @@
 
 void update_fat(FILE* posan, directory list){
 	//marcando a fat -----------------------------------------------
+	long int save = ftell(posan);
 	int cluster = list.initial_cluster;
 	fseek(posan, (cluster*2)+512, SEEK_SET);
 	unsigned short int mark = 0x00;
@@ -23,12 +24,13 @@ void update_fat(FILE* posan, directory list){
 			fwrite(&mark, sizeof(mark), 1, posan);
 		}
 	}	
+	fseek(posan, save, SEEK_SET);
 	// -------------------------------------------------------------
 }
 
 void remove_file(FILE* posan, char* dir, int desloc){
 	fseek(posan, desloc, SEEK_SET);
-	directory list;
+	directory list, subdir;
 	int cont = 0;
 	unsigned short rem = 0xE5;
 	while(1){
@@ -44,10 +46,20 @@ void remove_file(FILE* posan, char* dir, int desloc){
 		}
 		cont++;
 	}
-	if (list.attribute == 1)
-		update_fat(posan, list);
-	else{
-		
+	update_fat(posan, list);
+	if(list.attribute == 2){
+		fseek(posan, list.initial_cluster * 512, SEEK_SET);
+		while(1){
+			fread(&subdir, sizeof(subdir), 1, posan);
+			if (subdir.filename[0] == 0) break;
+			else{
+				fseek(posan, ftell(posan) - 32, SEEK_SET);
+				fwrite(&rem, sizeof(rem), 1, posan);
+				fseek(posan, ftell(posan) + 30, SEEK_SET);
+				update_fat(posan, subdir);
+			}
+			printf("%s\n", subdir.filename);
+		}
 	}
 }
 

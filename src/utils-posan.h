@@ -194,7 +194,7 @@ void listar_dir(FILE *fat, char* nome_dir){
 	
 	while(1){
 		fread(&list, sizeof(list),1,fat);
-		if (strcmp(list.filename, "") == 0) break;
+		if (list.filename[0] == 0) break;
 		if (list.attribute == 1 && list.filename[0] != 0xe5)
 			printf("%s\n", list.filename);
 	}
