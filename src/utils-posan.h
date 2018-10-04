@@ -110,18 +110,10 @@ void array_of_clusters(FILE *fat, unsigned short int *free_clusters, int ncluste
 	}
 }
 
-void copy_file(FILE *fat, FILE *save, char *name)
+void fill_fat(FILE *fat, FILE *save, int cluster, int nclusters, unsigned short int *arr)
 {
 	cif check;
-	int cluster = get_cluster(fat) + 256;
 	unsigned short int mark = 0xFFFF;
-	int nclusters = get_ncluster(save);
-
-	// TODO: verificar se o proximo cluster a ser preenchido esta ocupado =D
-	unsigned short int arr[nclusters];
-
-	//return the array that contains unnalocatted cluster
-	array_of_clusters(fat, arr, nclusters);
 
 	fseek(fat, (cluster * 2) + 512, SEEK_SET);
 	for (int i = 0; i < nclusters - 1; i++)
@@ -132,6 +124,38 @@ void copy_file(FILE *fat, FILE *save, char *name)
 			fseek(fat, (next_cluster * 2) + 512, SEEK_SET);
 	}
 	fwrite(&mark, sizeof(mark), 1, fat);
+}
+
+void copy_content(FILE *fat, FILE *save, int cluster, int nclusters, unsigned short int *arr)
+{
+	char reader, fill = 0;
+	int complete_cluster = 0;
+	int cont = 0;
+	fseek(fat, cluster * 512, SEEK_SET);
+	while (!feof(save) && cont < nclusters)
+	{
+		fread(&reader, sizeof(reader), 1, save);
+		fwrite(&reader, sizeof(reader), 1, fat);
+		complete_cluster++;
+		if (complete_cluster >= 512)
+		{
+			cont++;
+			fseek(fat, arr[cont] * 512, SEEK_SET);
+			complete_cluster = 0;
+		}
+	}
+	for (int i = 0; i < 512 - complete_cluster; i++)
+		fwrite(&fill, sizeof(fill), 1, fat);
+}
+
+void copy_file(FILE *fat, FILE *save, char *name)
+{
+	int cluster = get_cluster(fat) + 256;
+	int nclusters = get_ncluster(save);
+	unsigned short int arr[nclusters];
+	array_of_clusters(fat, arr, nclusters);
+
+	fill_fat(fat, save, cluster, nclusters, arr);
 
 	//criando diretorio----------------------------------------------------------------------
 	directory rd;
@@ -162,25 +186,7 @@ void copy_file(FILE *fat, FILE *save, char *name)
 
 	fwrite(&rd, sizeof(rd), 1, fat);
 
-	//copiando o conteudo---------------------------------------------------------------------------------
-	char reader, fill = 0;
-	int complete_cluster = 0;
-	int cont = 0;
-	fseek(fat, cluster * 512, SEEK_SET);
-	while (!feof(save) && cont < nclusters)
-	{
-		fread(&reader, sizeof(reader), 1, save);
-		fwrite(&reader, sizeof(reader), 1, fat);
-		complete_cluster++;
-		if (complete_cluster >= 512)
-		{
-			cont++;
-			fseek(fat, arr[cont] * 512, SEEK_SET);
-			complete_cluster = 0;
-		}
-	}
-	for (int i = 0; i < 512 - complete_cluster; i++)
-		fwrite(&fill, sizeof(fill), 1, fat);
+	copy_content(fat, save, cluster, nclusters, arr);
 }
 
 int get_c(int s)
@@ -205,7 +211,6 @@ void export_file(FILE *posan, char *name, FILE *save)
 	printf("%s\n", dir.filename);
 
 	int nclusters = get_c(dir.size_file);
-	printf("%d\n", nclusters);
 
 	fseek(posan, (dir.initial_cluster * 2) + 512, SEEK_SET);
 	for (int i = 0; i < nclusters; i++)
@@ -358,22 +363,14 @@ void fill_subdir(FILE *posan, FILE *save, char *name, char *name2)
 	}
 	//marcando fat
 	int cluster = get_cluster(posan) + 256;
-	fseek(posan, (cluster * 2) + 512, SEEK_SET);
-	unsigned short int mark = 0xFFFF, fillc = 0x01;
-
-	fwrite(&mark, sizeof(mark), 1, posan);
-
 	int nclusters = get_ncluster(save);
-	if (nclusters > 1)
-	{
-		for (int i = 0; i < nclusters; i++)
-		{
-			fwrite(&fillc, sizeof(fillc), 1, posan);
-		}
-	}
+	unsigned short int arr[nclusters];
+	array_of_clusters(posan, arr, nclusters);
+
+	fill_fat(posan, save, cluster, nclusters, arr);
 
 	//marcando subdir
-	fseek(posan, (512 * dir.initial_cluster), SEEK_SET);
+	fseek(posan, dir.initial_cluster * 512, SEEK_SET);
 
 	for (int i = 0; i < 25; i++)
 	{
@@ -401,20 +398,7 @@ void fill_subdir(FILE *posan, FILE *save, char *name, char *name2)
 
 	fwrite(&subdir, sizeof(subdir), 1, posan);
 	//copiando conteudo
-
-	fseek(posan, (subdir.initial_cluster) * 512, SEEK_SET);
-	char reader, fill = 0;
-	cont = 0;
-	while (!feof(save))
-	{
-		fread(&reader, sizeof(reader), 1, save);
-		fwrite(&reader, sizeof(reader), 1, posan);
-		cont++;
-		if (cont >= 512)
-			cont = 0;
-	}
-	for (int i = 0; i < 512 - cont; i++)
-		fwrite(&fill, sizeof(fill), 1, posan);
+	copy_content(posan, save, cluster, nclusters, arr);
 }
 
 void update_fat(FILE *posan, directory list)
