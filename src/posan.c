@@ -100,7 +100,7 @@ int main(int argc, char **argv)
 			char nome[100], backup[100];
 			strncpy(nome, get_nome(choose, ' '), sizeof(nome));
 
-			remove_file(posan, nome, 131584);
+			remove_file(posan, nome);
 		}
 		else if (strcmp(choose, "clear") == 0)
 			clear();

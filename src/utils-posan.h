@@ -85,13 +85,6 @@ int get_ncluster(FILE *save)
 	return (int)ceil(n);
 }
 
-int get_c(int s)
-{
-	double n = s;
-	n = n / 512;
-	return (int)ceil(n);
-}
-
 void array_of_clusters(FILE *fat, unsigned short int *free_clusters, int nclusters)
 {
 	cif check;
@@ -129,12 +122,6 @@ void copy_file(FILE *fat, FILE *save, char *name)
 
 	//return the array that contains unnalocatted cluster
 	array_of_clusters(fat, arr, nclusters);
-
-	for (int i = 0; i < nclusters; i++)
-	{
-		printf("%hu ", arr[i]);
-	}
-	printf("\n");
 
 	fseek(fat, (cluster * 2) + 512, SEEK_SET);
 	for (int i = 0; i < nclusters - 1; i++)
@@ -185,7 +172,8 @@ void copy_file(FILE *fat, FILE *save, char *name)
 		fread(&reader, sizeof(reader), 1, save);
 		fwrite(&reader, sizeof(reader), 1, fat);
 		complete_cluster++;
-		if (complete_cluster >= 512){
+		if (complete_cluster >= 512)
+		{
 			cont++;
 			fseek(fat, arr[cont] * 512, SEEK_SET);
 			complete_cluster = 0;
@@ -195,11 +183,19 @@ void copy_file(FILE *fat, FILE *save, char *name)
 		fwrite(&fill, sizeof(fill), 1, fat);
 }
 
+int get_c(int s)
+{
+	double n = s;
+	n = n / 512;
+	return (int)ceil(n);
+}
+
 void export_file(FILE *posan, char *name, FILE *save)
 {
 	fseek(posan, 131616, SEEK_SET); //pula o root dir
 	directory dir;
-	unsigned char entry = 0;
+	cif check;
+	unsigned char info;
 	while (1)
 	{
 		fread(&dir, sizeof(dir), 1, posan);
@@ -207,15 +203,28 @@ void export_file(FILE *posan, char *name, FILE *save)
 			break;
 	}
 	printf("%s\n", dir.filename);
-	double n = dir.size_file / 512;
-	int clusters = (int)ceil(n) + 1;
 
-	fseek(posan, 512 * dir.initial_cluster, SEEK_SET);
-	unsigned char info;
-	for (int i = 0; i < dir.size_file; i++)
+	int nclusters = get_c(dir.size_file);
+	printf("%d\n", nclusters);
+
+	fseek(posan, (dir.initial_cluster * 2) + 512, SEEK_SET);
+	for (int i = 0; i < nclusters; i++)
 	{
-		fread(&info, sizeof(info), 1, posan);
-		fwrite(&info, sizeof(info), 1, save);
+		fread(&check, sizeof(check), 1, posan);
+		int current = ftell(posan);
+
+		if (i == 0)
+			fseek(posan, dir.initial_cluster * 512, SEEK_SET);
+		else
+			fseek(posan, check.cluster * 512, SEEK_SET);
+
+		for (int j = 0; j < 512; j++)
+		{
+			fread(&info, sizeof(info), 1, posan);
+			if (info != 0)
+				fwrite(&info, sizeof(info), 1, save);
+		}
+		fseek(posan, current, SEEK_SET);
 	}
 }
 
@@ -410,32 +419,28 @@ void fill_subdir(FILE *posan, FILE *save, char *name, char *name2)
 
 void update_fat(FILE *posan, directory list)
 {
-	//marcando a fat -----------------------------------------------
-	long int save = ftell(posan);
-	int cluster = list.initial_cluster;
-	fseek(posan, (cluster * 2) + 512, SEEK_SET);
+	fseek(posan, (list.initial_cluster * 2) + 512, SEEK_SET);
 	unsigned short int mark = 0x00;
-	fwrite(&mark, sizeof(mark), 1, posan);
+	cif check;
 
-	int cl = get_c(list.size_file);
-
-	if (cl > 1)
+	while (fread(&check, sizeof(check), 1, posan))
 	{
-		for (int i = 0; i < cl; i++)
-		{
-			fwrite(&mark, sizeof(mark), 1, posan);
-		}
+		fseek(posan, ftell(posan) - sizeof(check), SEEK_SET);
+		fwrite(&mark, sizeof(mark), 1, posan);
+		fseek(posan, (check.cluster * 2) + 512, SEEK_SET);
+		if (check.cluster == 0xFFFF || check.cluster == 0)
+			break;
 	}
-	fseek(posan, save, SEEK_SET);
-	// -------------------------------------------------------------
 }
 
-void remove_file(FILE *posan, char *dir, int desloc)
+void remove_file(FILE *posan, char *dir)
 {
-	fseek(posan, desloc, SEEK_SET);
+	int desloc = 131584, cont = 0;
 	directory list, subdir;
-	int cont = 0;
 	unsigned short rem = 0xE5;
+
+	fseek(posan, desloc, SEEK_SET);
+
 	while (1)
 	{
 		if (cont == 16)
