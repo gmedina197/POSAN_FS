@@ -21,3 +21,8 @@ typedef struct reader
 {
 	unsigned char r;
 } __attribute__((packed)) reader_t;
+
+typedef struct cif 
+{
+	unsigned short cluster;
+} __attribute__((packed)) cif;

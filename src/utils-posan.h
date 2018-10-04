@@ -92,26 +92,58 @@ int get_c(int s)
 	return (int)ceil(n);
 }
 
-void copy_file(FILE *fat, FILE *save, char *name)
+void array_of_clusters(FILE *fat, unsigned short int *free_clusters, int nclusters)
 {
-	//marcando a FAT
+	cif check;
 	int cluster = get_cluster(fat) + 256;
 	fseek(fat, (cluster * 2) + 512, SEEK_SET);
-	unsigned short int mark = 0xFFFF, fillc = 0x01;
+
+	int cont = 0;
+	unsigned short int free_cluster = cluster;
+
+	while (cont < nclusters)
+	{
+		fread(&check, sizeof(check), 1, fat);
+		if (check.cluster == 0)
+		{
+			free_clusters[cont] = free_cluster;
+			cont++;
+			free_cluster++;
+		}
+		else
+		{
+			free_cluster++;
+		}
+	}
+}
+
+void copy_file(FILE *fat, FILE *save, char *name)
+{
+	cif check;
+	int cluster = get_cluster(fat) + 256;
+	unsigned short int mark = 0xFFFF;
 	int nclusters = get_ncluster(save);
 
 	// TODO: verificar se o proximo cluster a ser preenchido esta ocupado =D
-	char hex[5];
+	unsigned short int arr[nclusters];
 
-	if (nclusters > 1)
+	//return the array that contains unnalocatted cluster
+	array_of_clusters(fat, arr, nclusters);
+
+	for (int i = 0; i < nclusters; i++)
 	{
-		for (int i = 0; i < nclusters; i++)
-		{
-			unsigned short int no = cluster + i;
-			fwrite(&no, sizeof(no), 1, fat);
-		}
+		printf("%hu ", arr[i]);
 	}
+	printf("\n");
 
+	fseek(fat, (cluster * 2) + 512, SEEK_SET);
+	for (int i = 0; i < nclusters - 1; i++)
+	{
+		unsigned short int next_cluster = arr[i + 1];
+		fwrite(&next_cluster, sizeof(next_cluster), 1, fat);
+		if (arr[i] + 1 != next_cluster)
+			fseek(fat, (next_cluster * 2) + 512, SEEK_SET);
+	}
 	fwrite(&mark, sizeof(mark), 1, fat);
 
 	//criando diretorio----------------------------------------------------------------------
@@ -144,18 +176,22 @@ void copy_file(FILE *fat, FILE *save, char *name)
 	fwrite(&rd, sizeof(rd), 1, fat);
 
 	//copiando o conteudo---------------------------------------------------------------------------------
-	fseek(fat, (cluster)*512, SEEK_SET);
 	char reader, fill = 0;
+	int complete_cluster = 0;
 	int cont = 0;
-	while (!feof(save))
+	fseek(fat, cluster * 512, SEEK_SET);
+	while (!feof(save) && cont < nclusters)
 	{
 		fread(&reader, sizeof(reader), 1, save);
 		fwrite(&reader, sizeof(reader), 1, fat);
-		cont++;
-		if (cont >= 512)
-			cont = 0;
+		complete_cluster++;
+		if (complete_cluster >= 512){
+			cont++;
+			fseek(fat, arr[cont] * 512, SEEK_SET);
+			complete_cluster = 0;
+		}
 	}
-	for (int i = 0; i < 512 - cont; i++)
+	for (int i = 0; i < 512 - complete_cluster; i++)
 		fwrite(&fill, sizeof(fill), 1, fat);
 }
 
