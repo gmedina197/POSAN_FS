@@ -11,12 +11,9 @@
 
 /** 
  * 
- * TODO: ALOCAÇÃo CONTIGUA
- * TODO: cluster sobreescevendo o arquivo, ver marcacao da fat 
  * ! Entrega 10/10
  * 
  * */
-
 
 int main(int argc, char **argv)
 {
@@ -63,7 +60,7 @@ int main(int argc, char **argv)
 		}
 		else if (strstr(choose, "add") != NULL)
 		{
-			char nome[100], backup[100];
+			char nome[100];
 			strncpy(nome, get_nome(choose, ' '), sizeof(nome));
 
 			save = fopen(nome, "rb");
@@ -75,14 +72,9 @@ int main(int argc, char **argv)
 			strcpy(nome, get_nome(choose, '/'));
 
 			if (occurrences(choose) == 2)
-			{
-				//;
 				fill_subdir(posan, save, first_name(choose), nome);
-			}
 			else
-			{
 				copy_file(posan, save, nome);
-			}
 		}
 		else if (strstr(choose, "ls") != NULL)
 		{
@@ -106,7 +98,7 @@ int main(int argc, char **argv)
 			clear();
 		else if (strcmp(choose, "help") == 0)
 		{
-			printf("POSAN(Projeto Ordinario de um Sistema de Aquivo Novo) version 1.0\n");
+			printf("POSAN(Projeto Ordinario de um Sistema de Aquivo Novo) version 2.0\n");
 			printf("quit               - close the program and generate the .img file\n");
 			printf("format             - format the FAT table and the directories in the file\n");
 			printf("add [PATH_TO_FILE] - insert a file into the filesystem\n");
@@ -118,7 +110,7 @@ int main(int argc, char **argv)
 		{
 
 			char nome[100];
-			strcpy(nome, get_nome(choose, ' '));
+			strncpy(nome, get_nome(choose, ' '), sizeof(nome));
 			save = fopen(nome, "wb");
 			if (save == NULL)
 			{
@@ -126,7 +118,15 @@ int main(int argc, char **argv)
 				exit(-1);
 			}
 			strcpy(nome, get_nome(choose, '/'));
-			export_file(posan, nome, save);
+
+			if (occurrences(choose) == 2)
+			{
+				export_dir(posan, nome, first_name(choose), save);
+			}
+			else
+			{
+				export_file(posan, nome, save);
+			}
 			fclose(save);
 		}
 		else if (strstr(choose, "mkdir") != NULL)
