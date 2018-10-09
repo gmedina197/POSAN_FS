@@ -89,10 +89,17 @@ int main(int argc, char **argv)
 		}
 		else if (strstr(choose, "rm") != NULL)
 		{
-			char nome[100], backup[100];
+			char nome[100];
 			strncpy(nome, get_nome(choose, ' '), sizeof(nome));
 
-			remove_file(posan, nome);
+			if (occurrences(choose) == 2)
+			{
+				remove_from_subdir(posan, nome, first_name(choose));
+			}
+			else
+			{
+				remove_file(posan, nome);
+			}
 		}
 		else if (strcmp(choose, "clear") == 0)
 			clear();

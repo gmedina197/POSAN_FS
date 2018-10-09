@@ -203,18 +203,15 @@ int get_c(int s)
 
 directory get_dir_name(FILE *posan, char *name)
 {
+	fseek(posan, 131616, SEEK_SET); //pula o root dir
 	struct directory dir;
-	int cont = 0;
 	while (1)
 	{
-		if (cont == 16)
-			break;
 		fread(&dir, sizeof(dir), 1, posan);
-		if (strcmp(dir.filename, name) == 0)
-		{
+		if (dir.filename[0] == 0)
 			break;
-		}
-		cont++;
+		else if (strcmp(dir.filename, name) == 0)
+			break;
 	}
 	return dir;
 }
@@ -256,7 +253,6 @@ void get_content(FILE *posan, FILE *save, directory dir)
 
 void export_file(FILE *posan, char *name, FILE *save)
 {
-	fseek(posan, 131616, SEEK_SET); //pula o root dir
 	directory dir = get_dir_name(posan, name);
 	printf("%s\n", dir.filename);
 
@@ -265,7 +261,6 @@ void export_file(FILE *posan, char *name, FILE *save)
 
 void export_dir(FILE *posan, char *name, char *dir_name, FILE *save)
 {
-	fseek(posan, 131616, SEEK_SET); //pula o root dir
 	directory dir = get_dir_name(posan, dir_name), file_name;
 	cif check;
 	unsigned char info;
@@ -488,27 +483,26 @@ void remove_file(FILE *posan, char *dir)
 	update_fat(posan, list);
 }
 
-void remove_from_subdir(FILE *posan, char *dir)
+void remove_from_subdir(FILE *posan, char *name, char *dir)
 {
-	directory list, subdir;
+	directory archive, subdir = get_dir_name(posan, dir);
 	unsigned short rem = 0xE5;
-
-	if (list.attribute == 2)
+	if (subdir.attribute == 2)
 	{
-		fseek(posan, list.initial_cluster * 512, SEEK_SET);
+		fseek(posan, subdir.initial_cluster * 512, SEEK_SET);
 		while (1)
 		{
-			fread(&subdir, sizeof(subdir), 1, posan);
-			if (subdir.filename[0] == 0)
+			fread(&archive, sizeof(archive), 1, posan);
+			if (archive.filename[0] == 0)
 				break;
-			else
+			else if (strcmp(archive.filename, name) == 0)
 			{
 				fseek(posan, ftell(posan) - 32, SEEK_SET);
 				fwrite(&rem, sizeof(rem), 1, posan);
 				fseek(posan, ftell(posan) + 30, SEEK_SET);
-				update_fat(posan, subdir);
+				update_fat(posan, archive);
 			}
-			printf("%s\n", subdir.filename);
+			printf("%s\n", archive.filename);
 		}
 	}
 }
