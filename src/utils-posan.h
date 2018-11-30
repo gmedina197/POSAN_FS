@@ -48,15 +48,15 @@ const char *get_nome(char *path, int rmv)
 	return ret;
 }
 
-int occurrences(char *path)
+int occurrences(char *path, char wanted)
 {
 	char *pch;
-	pch = strchr(path, ' ');
+	pch = strchr(path, wanted);
 	int i = 0;
 	while (pch != NULL)
 	{
 		i++;
-		pch = strchr(pch + 1, ' ');
+		pch = strchr(pch + 1, wanted);
 	}
 	return i;
 }
@@ -201,9 +201,9 @@ int get_c(int s)
 	return (int)ceil(n);
 }
 
-directory get_dir_name(FILE *posan, char *name)
+directory get_dir_name(FILE *posan, char *name, int offset)
 {
-	fseek(posan, 131616, SEEK_SET); //pula o root dir
+	fseek(posan, offset, SEEK_SET); //pula o root dir
 	struct directory dir;
 	while (1)
 	{
@@ -214,6 +214,84 @@ directory get_dir_name(FILE *posan, char *name)
 			break;
 	}
 	return dir;
+}
+
+void removeChar(char *str, char garbage)
+{
+
+	char *src, *dst;
+	for (src = dst = str; *src != '\0'; src++)
+	{
+		*dst = *src;
+		if (*dst != garbage)
+			dst++;
+	}
+	*dst = '\0';
+}
+
+void move(FILE *fat, char *name, char *to, int mult)
+{
+	directory dir, destiny, sdir;
+	//char ZEROARRAY[32] = {0};
+	unsigned short rem = 0xE5;
+	long int current_pos = 0;
+
+	if (mult == 0)
+	{
+		dir = get_dir_name(fat, name, 131616);
+		fseek(fat, ftell(fat) - 32, SEEK_SET);
+		fwrite(&rem, sizeof(rem), 1, fat);
+
+		destiny = get_dir_name(fat, to, 131616);
+		fseek(fat, destiny.initial_cluster * 512, SEEK_SET);
+
+		while (1)
+		{
+			fread(&sdir, sizeof(sdir), 1, fat);
+			if (strcmp(sdir.filename, "") == 0)
+			{
+				fseek(fat, ftell(fat) - 32, SEEK_SET);
+				break;
+			}
+		}
+
+		fwrite(&dir, sizeof(dir), 1, fat);
+	}
+	else if (mult == 1)
+	{
+		destiny = get_dir_name(fat, to, 131616);
+		removeChar(name, '*');
+		fseek(fat, 131616, SEEK_SET);
+		int control = 0;
+		while (1)
+		{
+			fread(&dir, sizeof(dir), 1, fat);
+			if (strcmp(dir.filename, "") == 0)
+			{
+				break;
+			}
+			else if (strstr(dir.filename, name) != NULL)
+			{
+				fseek(fat, ftell(fat) - 32, SEEK_SET);
+				fwrite(&rem, sizeof(rem), 1, fat);
+
+				fseek(fat, destiny.initial_cluster * 512, SEEK_SET);
+
+				while (1)
+				{
+					fread(&sdir, sizeof(sdir), 1, fat);
+					if (strcmp(sdir.filename, "") == 0)
+					{
+						fseek(fat, ftell(fat) - 32, SEEK_SET);
+						fwrite(&dir, sizeof(dir), 1, fat);
+						break;
+					}
+				}
+			}
+			fseek(fat, 131616 + control, SEEK_SET);
+			control += 32;
+		}
+	}
 }
 
 void get_content(FILE *posan, FILE *save, directory dir)
@@ -253,7 +331,7 @@ void get_content(FILE *posan, FILE *save, directory dir)
 
 void export_file(FILE *posan, char *name, FILE *save)
 {
-	directory dir = get_dir_name(posan, name);
+	directory dir = get_dir_name(posan, name, 131616);
 	printf("%s\n", dir.filename);
 
 	get_content(posan, save, dir);
@@ -261,12 +339,12 @@ void export_file(FILE *posan, char *name, FILE *save)
 
 void export_dir(FILE *posan, char *name, char *dir_name, FILE *save)
 {
-	directory dir = get_dir_name(posan, dir_name), file_name;
+	directory dir = get_dir_name(posan, dir_name, 131616), file_name;
 	cif check;
 	unsigned char info;
 
 	fseek(posan, dir.initial_cluster * 512, SEEK_SET);
-	file_name = get_dir_name(posan, name);
+	file_name = get_dir_name(posan, name, 131616);
 	printf("%s", file_name.filename);
 
 	get_content(posan, save, file_name);
@@ -485,7 +563,7 @@ void remove_file(FILE *posan, char *dir)
 
 void remove_from_subdir(FILE *posan, char *name, char *dir)
 {
-	directory archive, subdir = get_dir_name(posan, dir);
+	directory archive, subdir = get_dir_name(posan, dir, 131616);
 	unsigned short rem = 0xE5;
 	if (subdir.attribute == 2)
 	{

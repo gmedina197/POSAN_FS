@@ -9,12 +9,6 @@
 
 #define clear() printf("\033[H\033[J")
 
-/** 
- * 
- * ! Entrega 10/10
- * 
- * */
-
 int main(int argc, char **argv)
 {
 	FILE *posan, *save;
@@ -46,6 +40,14 @@ int main(int argc, char **argv)
 			printf("bye :(\n");
 			exit(-1);
 		}
+		else if (strstr(choose, "mv") != NULL)
+		{
+			char nome[100], to[1000];
+			strncpy(to, get_nome(choose, ' '), sizeof(to));
+			strncpy(nome, first_name(choose), sizeof(nome));
+			int mult = (occurrences(nome, '*') >= 1) ? 1 : 0;
+			move(posan, nome, to, mult);
+		}
 		else if (strcmp(choose, "format") == 0)
 		{
 			printf("Formating...Please Wait \n");
@@ -71,7 +73,7 @@ int main(int argc, char **argv)
 			}
 			strcpy(nome, get_nome(choose, '/'));
 
-			if (occurrences(choose) == 2)
+			if (occurrences(choose, ' ') == 2)
 				fill_subdir(posan, save, first_name(choose), nome);
 			else
 				copy_file(posan, save, nome);
@@ -79,7 +81,7 @@ int main(int argc, char **argv)
 		else if (strstr(choose, "ls") != NULL)
 		{
 			char nome[100];
-			if (occurrences(choose) == 1)
+			if (occurrences(choose, ' ') == 1)
 			{
 				strcpy(nome, get_nome(choose, ' '));
 				listar_dir(posan, nome);
@@ -92,7 +94,7 @@ int main(int argc, char **argv)
 			char nome[100];
 			strncpy(nome, get_nome(choose, ' '), sizeof(nome));
 
-			if (occurrences(choose) == 2)
+			if (occurrences(choose, ' ') == 2)
 			{
 				remove_from_subdir(posan, nome, first_name(choose));
 			}
@@ -126,7 +128,7 @@ int main(int argc, char **argv)
 			}
 			strcpy(nome, get_nome(choose, '/'));
 
-			if (occurrences(choose) == 2)
+			if (occurrences(choose, ' ') == 2)
 			{
 				export_dir(posan, nome, first_name(choose), save);
 			}
